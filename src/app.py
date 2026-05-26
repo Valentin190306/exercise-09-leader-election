@@ -5,9 +5,45 @@ from sqlalchemy.orm import Session
 from src.database import Base, engine, get_db
 from src.models import Node
 from src.schemas import NodeCreate, NodeResponse, NodeUpdate
+from pydantic import BaseModel
+import threading
+import time
+import os
+from src import election
 
-Base.metadata.create_all(bind=engine)
+class ElectionMessage(BaseModel):
+    sender_id: int
+
+class VictoryMessage(BaseModel):
+    leader_id: int
+
+# Stagger startup to avoid DB table creation race conditions
+time.sleep(int(os.getenv("NODE_ID", "1")))
+try:
+    Base.metadata.create_all(bind=engine)
+except Exception as e:
+    print(f"DB creation error (likely race condition, safe to ignore): {e}")
+
 app = FastAPI()
+
+
+@app.on_event("startup")
+def startup_event():
+    threading.Thread(target=election.heartbeat_check, daemon=True).start()
+
+@app.post("/api/election")
+def receive_election(msg: ElectionMessage):
+    if election.handle_election_message(msg.sender_id):
+        return {"status": "ok"}
+    else:
+        return {"status": "ignored"}
+
+@app.post("/api/victory")
+def receive_victory(msg: VictoryMessage):
+    election.current_leader = msg.leader_id
+    election.election_in_progress = False
+    election.logger.info(f"Node {election.NODE_ID} acknowledges node {msg.leader_id} as leader")
+    return {"status": "ok"}
 
 @app.get("/health")
 def health(db: Session = Depends(get_db)):
