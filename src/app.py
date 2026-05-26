@@ -45,6 +45,10 @@ def receive_victory(msg: VictoryMessage):
     election.logger.info(f"Node {election.NODE_ID} acknowledges node {msg.leader_id} as leader")
     return {"status": "ok"}
 
+@app.get("/leader")
+def get_leader():
+    return {"leader": election.current_leader, "leader_id": election.current_leader}
+
 @app.get("/health")
 def health(db: Session = Depends(get_db)):
     try:
