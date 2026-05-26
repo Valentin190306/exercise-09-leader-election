@@ -2,9 +2,9 @@ services:
   db:
     image: postgres:15-alpine
     environment:
-      - POSTGRES_USER=noderegistry
-      - POSTGRES_PASSWORD=noderegistry
-      - POSTGRES_DB=noderegistry
+      POSTGRES_USER: noderegistry
+      POSTGRES_PASSWORD: noderegistry
+      POSTGRES_DB: noderegistry
     ports:
       - "5432:5432"
     healthcheck:
